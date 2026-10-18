@@ -7,7 +7,7 @@ A small AI engineering lab that converts free-form support tickets into structur
 
 This project focuses on using an LLM as a structured application component instead of treating it only as a text generator.
 
-The model extracts:
+The model extracts
 
 - `category`
 - `priority`
