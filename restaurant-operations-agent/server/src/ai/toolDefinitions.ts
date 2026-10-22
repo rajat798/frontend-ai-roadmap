@@ -61,9 +61,44 @@ export const listRecipesTool = {
   strict: true,
 } as const;
 
+export const createTaskTool = {
+  type: "function",
+  name: "create_task",
+  description:
+    "Propose creating an operational restaurant task. This action requires human approval before it is actually created.",
+
+  parameters: {
+    type: "object",
+
+    properties: {
+      title: {
+        type: "string",
+        description: "Clear operational task title.",
+      },
+
+      quantity: {
+        type: ["number", "null"],
+        description: "Quantity required for the task.",
+      },
+
+      unit: {
+        type: ["string", "null"],
+        description:
+          "Unit for the quantity, for example kg, litre, or piece.",
+      },
+    },
+
+    required: ["title", "quantity", "unit"],
+    additionalProperties: false,
+  },
+
+  strict: true,
+} as const;
+
 
 export const restaurantTools = [
   checkInventoryTool,
   getForecastTool,
   listRecipesTool,
+  createTaskTool
 ] satisfies OpenAI.Responses.Tool[];
