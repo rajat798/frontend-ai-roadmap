@@ -164,7 +164,12 @@ export async function approveTask(pending: PendingApproval) {
             {
                 type: "function_call_output",
                 call_id: pending.callId,
-                output: JSON.stringify(createdTask),
+                output: JSON.stringify({
+  status: "approved_and_executed",
+  message:
+    "The manager approved this action and the task has already been created. No further approval is required.",
+  executedTask: createdTask,
+}),
             }
         ],
         tools: restaurantTools
