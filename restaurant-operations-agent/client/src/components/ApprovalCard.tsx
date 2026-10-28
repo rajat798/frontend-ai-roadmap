@@ -1,9 +1,6 @@
 import { useState } from "react";
 
-import type {
-  PendingApproval,
-  TaskArguments,
-} from "../types/agent";
+import type { PendingApproval, TaskArguments } from "../types/agent";
 
 type ApprovalCardProps = {
   approval: PendingApproval;
@@ -12,9 +9,7 @@ type ApprovalCardProps = {
   onApprove: () => Promise<void>;
   onReject: () => Promise<void>;
 
-  onEditAndApprove: (
-    arguments_: TaskArguments
-  ) => Promise<void>;
+  onEditAndApprove: (arguments_: TaskArguments) => Promise<void>;
 };
 
 export function ApprovalCard({
@@ -24,30 +19,22 @@ export function ApprovalCard({
   onReject,
   onEditAndApprove,
 }: ApprovalCardProps) {
-  const [isEditing, setIsEditing] =
-    useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
-  const [title, setTitle] = useState(
-    approval.arguments.title
-  );
+  const [title, setTitle] = useState(approval.arguments.title);
 
   const [quantity, setQuantity] = useState(
-    approval.arguments.quantity?.toString() ?? ""
+    approval.arguments.quantity?.toString() ?? "",
   );
 
-  const [unit, setUnit] = useState(
-    approval.arguments.unit ?? ""
-  );
+  const [unit, setUnit] = useState(approval.arguments.unit ?? "");
 
   async function handleSaveAndApprove() {
-    const parsedQuantity =
-      quantity.trim() === ""
-        ? null
-        : Number(quantity);
+    const parsedQuantity = quantity.trim() === "" ? null : Number(quantity);
 
     if (
       parsedQuantity !== null &&
-      Number.isNaN(parsedQuantity)
+      (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0)
     ) {
       return;
     }
@@ -55,20 +42,17 @@ export function ApprovalCard({
     await onEditAndApprove({
       title: title.trim(),
       quantity: parsedQuantity,
-      unit:
-        unit.trim() === ""
-          ? null
-          : unit.trim(),
+      unit: unit.trim() === "" ? null : unit.trim(),
     });
   }
 
   return (
-    <section>
-      <h2>Approval Required</h2>
+    <section className="panel approval" aria-labelledby="approval-title">
+      <p className="eyebrow">02 / Manager decision</p>
+      <h2 id="approval-title">Review proposed task</h2>
 
       <p>
-        The agent wants to execute:
-        <strong> {approval.toolName}</strong>
+        No task has been created yet. Approve, adjust, or reject this proposal.
       </p>
 
       {!isEditing ? (
@@ -78,30 +62,21 @@ export function ApprovalCard({
             <dd>{approval.arguments.title}</dd>
 
             <dt>Quantity</dt>
-            <dd>
-              {approval.arguments.quantity ??
-                "Not specified"}
-            </dd>
+            <dd>{approval.arguments.quantity ?? "Not specified"}</dd>
 
             <dt>Unit</dt>
-            <dd>
-              {approval.arguments.unit ??
-                "Not specified"}
-            </dd>
+            <dd>{approval.arguments.unit ?? "Not specified"}</dd>
           </dl>
 
-          <div>
-            <button
-              type="button"
-              disabled={isLoading}
-              onClick={onApprove}
-            >
+          <div className="actions">
+            <button type="button" disabled={isLoading} onClick={onApprove}>
               Approve
             </button>
 
             <button
               type="button"
               disabled={isLoading}
+              className="secondary"
               onClick={() => setIsEditing(true)}
             >
               Edit
@@ -110,6 +85,7 @@ export function ApprovalCard({
             <button
               type="button"
               disabled={isLoading}
+              className="danger"
               onClick={onReject}
             >
               Reject
@@ -121,10 +97,9 @@ export function ApprovalCard({
           <label>
             Task
             <input
+              disabled={isLoading}
               value={title}
-              onChange={event =>
-                setTitle(event.target.value)
-              }
+              onChange={(event) => setTitle(event.target.value)}
             />
           </label>
 
@@ -132,33 +107,33 @@ export function ApprovalCard({
             Quantity
             <input
               type="number"
+              min="0.01"
+              step="any"
+              disabled={isLoading}
               value={quantity}
-              onChange={event =>
-                setQuantity(event.target.value)
-              }
+              onChange={(event) => setQuantity(event.target.value)}
             />
           </label>
 
           <label>
             Unit
             <input
+              disabled={isLoading}
               value={unit}
-              onChange={event =>
-                setUnit(event.target.value)
-              }
+              onChange={(event) => setUnit(event.target.value)}
             />
           </label>
 
-          <div>
+          <div className="actions">
             <button
               type="button"
               disabled={
                 isLoading ||
-                !title.trim()
+                !title.trim() ||
+                (quantity.trim() !== "" &&
+                  (!Number.isFinite(Number(quantity)) || Number(quantity) <= 0))
               }
-              onClick={
-                handleSaveAndApprove
-              }
+              onClick={handleSaveAndApprove}
             >
               Save & Approve
             </button>
@@ -166,9 +141,7 @@ export function ApprovalCard({
             <button
               type="button"
               disabled={isLoading}
-              onClick={() =>
-                setIsEditing(false)
-              }
+              onClick={() => setIsEditing(false)}
             >
               Cancel
             </button>

@@ -1,21 +1,14 @@
-type AgentResponseProps = {
-  message: string;
-};
-
-export function AgentResponse({
-  message,
-}: AgentResponseProps) {
+import Markdown from "react-markdown";
+export function AgentResponse({ message }: { message: string }) {
   return (
-    <section>
-      <h2>Agent Response</h2>
-
-      <p
-        style={{
-          whiteSpace: "pre-wrap",
-        }}
-      >
-        {message}
-      </p>
+    <section className="panel response" aria-labelledby="response-title">
+      <p className="eyebrow">Operations brief</p>
+      <h2 id="response-title">Your readiness report</h2>
+      <div className="markdown">
+        <Markdown skipHtml disallowedElements={["img"]}>
+          {message}
+        </Markdown>
+      </div>
     </section>
   );
 }

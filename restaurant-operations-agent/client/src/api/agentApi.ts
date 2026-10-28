@@ -1,48 +1,35 @@
-import type {
-  AgentResponse,
-  TaskArguments
-} from "../types/agent";
+import type { AgentResponse, TaskArguments } from "../types/agent";
 
-const API_URL = "http://localhost:3001";
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
-async function handleResponse(
-  response: Response
-): Promise<AgentResponse> {
+async function handleResponse(response: Response): Promise<AgentResponse> {
   if (!response.ok) {
-    const data = await response
-      .json()
-      .catch(() => null);
+    const data = await response.json().catch(() => null);
 
     throw new Error(
-      data?.error ||
-        `Request failed with status ${response.status}`
+      data?.error || `Request failed with status ${response.status}`,
     );
   }
 
   return response.json();
 }
 
-export async function runAgent(
-  message: string
-): Promise<AgentResponse> {
-  const response = await fetch(
-    `${API_URL}/api/agent/run`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        message,
-      }),
-    }
-  );
+export async function runAgent(message: string): Promise<AgentResponse> {
+  const response = await fetch(`${API_URL}/api/agent/run`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message,
+    }),
+  });
 
   return handleResponse(response);
 }
 
 export async function approveAction(
-  approvalId: string
+  approvalId: string,
 ): Promise<AgentResponse> {
   const response = await fetch(
     `${API_URL}/api/approvals/${approvalId}/approve`,
@@ -51,15 +38,13 @@ export async function approveAction(
       headers: {
         "Content-Type": "application/json",
       },
-    }
+    },
   );
 
   return handleResponse(response);
 }
 
-export async function rejectAction(
-  approvalId: string
-): Promise<AgentResponse> {
+export async function rejectAction(approvalId: string): Promise<AgentResponse> {
   const response = await fetch(
     `${API_URL}/api/approvals/${approvalId}/reject`,
     {
@@ -67,7 +52,7 @@ export async function rejectAction(
       headers: {
         "Content-Type": "application/json",
       },
-    }
+    },
   );
 
   return handleResponse(response);
@@ -75,18 +60,15 @@ export async function rejectAction(
 
 export async function editAndApproveAction(
   approvalId: string,
-  arguments_: TaskArguments
+  arguments_: TaskArguments,
 ): Promise<AgentResponse> {
-  const response = await fetch(
-    `${API_URL}/api/approvals/${approvalId}/edit`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(arguments_),
-    }
-  );
+  const response = await fetch(`${API_URL}/api/approvals/${approvalId}/edit`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(arguments_),
+  });
 
   return handleResponse(response);
 }
