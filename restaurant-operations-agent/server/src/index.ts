@@ -1,91 +1,245 @@
-import { askRestaurantAgent, approveTask, rejectTask, editAndApproveTask } from "./ai/restaurantAgent";
+import "dotenv/config";
 
-async function main() {
-  // const response = await askRestaurantAgent(
-  //   "Are we ready for tonight's dinner rush? Check the demand forecast and our chicken inventory."
-  // );
+import express from "express";
+import cors from "cors";
 
-  // console.log("\nRestaurant Agent:\n");
-  // console.log(response.output_text);
+import {
+  askRestaurantAgent,
+  approveTask,
+  rejectTask,
+  editAndApproveTask,
+  type RestaurantAgentResult,
+} from "./ai/restaurantAgent";
 
-  const result = await askRestaurantAgent(
-    `
-We need to prepare for tonight's dinner rush.
+import {
+  savePendingApproval,
+  getPendingApproval,
+  removePendingApproval,
+} from "./approvals/pendingApprovalStore";
 
-Check the forecast and chicken inventory.
+const app = express();
 
-If there is a chicken shortage,
-propose a task to prepare the missing quantity.
-  `.trim()
-  );
+app.use(cors());
+app.use(express.json());
 
-  //   if (result.type === "pending_approval") {
-  //   console.log("\nApproval Required:\n");
-  //   console.log(result.arguments);
+const PORT = 3001;
 
-  //   console.log("\nSimulating manager rejection...\n");
-
-  //   const afterRejection =
-  //     await rejectTask(result);
-
-  //   if (afterRejection.type === "completed") {
-  //     console.log("\nRestaurant Agent:\n");
-  //     console.log(
-  //       afterRejection.response.output_text
-  //     );
-  //   }
-
-  //   return;
-  // }
-
-  //   if (result.type === "pending_approval") {
-  //   console.log("\nApproval Required:\n");
-  //   console.log(result.arguments);
-
-  //   console.log("\nSimulating manager edit...\n");
-
-  //   const editedArguments = {
-  //     ...result.arguments,
-  //     quantity: 10,
-  //   };
-
-  //   console.log("Edited proposal:", editedArguments);
-
-  //   const afterEdit = await editAndApproveTask(
-  //     result,
-  //     editedArguments
-  //   );
-
-  //   if (afterEdit.type === "completed") {
-  //     console.log("\nRestaurant Agent:\n");
-  //     console.log(
-  //       afterEdit.response.output_text
-  //     );
-  //   }
-
-  //   return;
-  // }
-
-  if (result.type === "pending_approval") {
-    console.log("\nApproval Required:\n");
-    console.log(result.arguments);
-
-    console.log("\nSimulating manager approval...\n");
-    // const finalResponse = await approveTask(result);
-    // console.log("\nRestaurant Agent:\n");
-    // console.log(finalResponse.output_text);
-    const afterApproval = await approveTask(result);
-    if (afterApproval.type === "completed") {
-      console.log("\nRestaurant Agent:\n");
-      console.log(
-        afterApproval.response.output_text
-      );
-    }
-    return;
+function serializeAgentResult(
+  result: RestaurantAgentResult
+) {
+  if (result.type === "completed") {
+    return {
+      status: "completed" as const,
+      message: result.response.output_text,
+    };
   }
+
+  const approvalId =
+    savePendingApproval(result);
+
+  return {
+    status: "pending_approval" as const,
+
+    approval: {
+      approvalId,
+      toolName: result.toolName,
+      arguments: result.arguments,
+    },
+  };
 }
 
-main().catch(error => {
-  console.error(error);
-  process.exitCode = 1;
+app.get("/health", (_req, res) => {
+  res.json({
+    status: "ok",
+  });
+});
+
+app.post(
+  "/api/agent/run",
+  async (req, res) => {
+    try {
+      const { message } = req.body;
+
+      if (
+        typeof message !== "string" ||
+        !message.trim()
+      ) {
+        res.status(400).json({
+          error: "message is required",
+        });
+
+        return;
+      }
+
+      const result =
+        await askRestaurantAgent(
+          message.trim()
+        );
+
+      res.json(
+        serializeAgentResult(result)
+      );
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        error: "Agent execution failed",
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/approvals/:approvalId/approve",
+  async (req, res) => {
+    try {
+      const { approvalId } = req.params;
+
+      const stored =
+        getPendingApproval(approvalId);
+
+      if (!stored) {
+        res.status(404).json({
+          error: "Approval not found",
+        });
+
+        return;
+      }
+
+      const result =
+        await approveTask(
+          stored.pending
+        );
+
+      removePendingApproval(
+        approvalId
+      );
+
+      res.json(
+        serializeAgentResult(result)
+      );
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        error: "Approval failed",
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/approvals/:approvalId/reject",
+  async (req, res) => {
+    try {
+      const { approvalId } = req.params;
+
+      const stored =
+        getPendingApproval(approvalId);
+
+      if (!stored) {
+        res.status(404).json({
+          error: "Approval not found",
+        });
+
+        return;
+      }
+
+      const result =
+        await rejectTask(
+          stored.pending
+        );
+
+      removePendingApproval(
+        approvalId
+      );
+
+      res.json(
+        serializeAgentResult(result)
+      );
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        error: "Rejection failed",
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/approvals/:approvalId/edit",
+  async (req, res) => {
+    try {
+      const { approvalId } = req.params;
+
+      const stored =
+        getPendingApproval(approvalId);
+
+      if (!stored) {
+        res.status(404).json({
+          error: "Approval not found",
+        });
+
+        return;
+      }
+
+      const {
+        title,
+        quantity,
+        unit,
+      } = req.body;
+
+      if (
+        typeof title !== "string" ||
+        !title.trim()
+      ) {
+        res.status(400).json({
+          error:
+            "Valid title is required",
+        });
+
+        return;
+      }
+
+      const result =
+        await editAndApproveTask(
+          stored.pending,
+          {
+            title: title.trim(),
+
+            quantity:
+              typeof quantity === "number"
+                ? quantity
+                : null,
+
+            unit:
+              typeof unit === "string"
+                ? unit
+                : null,
+          }
+        );
+
+      removePendingApproval(
+        approvalId
+      );
+
+      res.json(
+        serializeAgentResult(result)
+      );
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        error:
+          "Edit and approval failed",
+      });
+    }
+  }
+);
+
+app.listen(PORT, () => {
+  console.log(
+    `Restaurant Operations API running on http://localhost:${PORT}`
+  );
 });

@@ -4,7 +4,7 @@ import { restaurantTools } from "./toolDefinitions";
 import { executeTool } from "./toolExecutor";
 import { createTask } from "../tools/createTask";
 
-type PendingApproval = {
+export type PendingApproval = {
     type: "pending_approval";
     responseId: string;
     callId: string;
