@@ -2,6 +2,7 @@ import "dotenv/config";
 
 import express from "express";
 import cors from "cors";
+import { rateLimit } from "express-rate-limit";
 
 import {
   askRestaurantAgent,
@@ -47,6 +48,19 @@ app.use(
 );
 
 app.use(express.json());
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: {
+    error:
+      "AI request limit reached. Please try again later.",
+  },
+});
+
+app.use("/api", aiLimiter);
 
 const PORT = Number(process.env.PORT) || 3001;
 
