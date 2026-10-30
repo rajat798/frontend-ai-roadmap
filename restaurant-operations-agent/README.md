@@ -1,281 +1,243 @@
-# Restaurant Operations Agent
+# 🍽️ Restaurant Operations Agent
 
-A deployed React + TypeScript AI operations application that combines deterministic restaurant data with LLM tool calling, structured execution events, and human approval for state-changing actions.
+A deployed React + TypeScript AI operations application that helps restaurant managers evaluate service readiness using **real application evidence, LLM reasoning, and human-approved actions**.
 
-**Live Demo:** https://frontend-ai-roadmap.vercel.app/  
-**API:** https://frontend-ai-roadmap.onrender.com
+**Live Demo:**  
+https://frontend-ai-roadmap.vercel.app/
 
-> Built as a portfolio project to demonstrate AI-native frontend/product engineering: grounded tool use, bounded agent execution, human-in-the-loop controls, provider isolation, and transparent execution history.
-
----
-
-## Overview
-
-The Restaurant Operations Agent helps a restaurant manager evaluate service readiness using operational evidence rather than relying on an LLM to invent business state.
-
-For the demo scenario, the agent:
-
-1. Retrieves the expected dinner-service forecast.
-2. Checks chicken inventory.
-3. Identifies inventory shortages using deterministic application logic.
-4. Proposes an operational task when action is required.
-5. Pauses before any state-changing action.
-6. Allows the manager to **Approve**, **Edit**, or **Reject** the proposal.
-7. Resumes the agent with the actual manager decision and executed outcome.
-
-The model can reason about operational evidence, but the application retains control over business logic and side effects.
-
----
-
-## Demo
+**Backend API:**  
+https://frontend-ai-roadmap.onrender.com/
 
 ![Restaurant Operations Agent demo](docs/media/demo.gif)
 
-The demo shows the full flow:
+---
 
-1. Agent checks forecast and inventory.
-2. Detects a 12 kg chicken shortage.
-3. Proposes a task.
-4. Manager edits the task from 12 kg to 10 kg.
-5. The approved task executes.
-6. The final report correctly identifies the remaining 2 kg shortfall.
+## The Question
 
-## Screenshots
+Restaurant operations often come down to a deceptively simple question:
 
-![Restaurant Operations Agent](docs/media/hero.png)
+> **“Are we ready for tonight’s dinner rush?”**
 
-### Human approval before execution
+Answering it may require understanding:
 
-![Manager approval workflow](docs/media/approval-required.png)
+- expected demand
+- current inventory
+- recipe requirements
+- shortages
+- actions needed before service
 
-### Editable AI proposal
+An LLM can help interpret that information.
+
+But it shouldn’t invent the information.
+
+And it shouldn’t be allowed to perform operational actions without control.
+
+That is what this project explores.
+
+---
+
+## How It Works
+
+The manager asks:
+
+> **Are we ready for tonight's dinner rush?**
+
+The agent uses deterministic application tools to inspect the restaurant state.
+
+For the demo scenario:
+
+```text id="l8mkcb"
+Forecast
+180 covers
+88% confidence
+
+Chicken inventory
+18 kg available
+
+Required inventory
+30 kg
+
+Shortage
+12 kg
+```
+
+The model interprets those results and proposes:
+
+> **Procure 12 kg of chicken breast**
+
+But the task is **not created yet**.
+
+The system pauses.
+
+---
+
+## 🏗️ System Architecture
+
+![Restaurant Operations Agent architecture](docs/media/restaurant_operations_agent_architecture.png)
+
+The application separates the UI, application boundary, AI orchestration, deterministic tools, and state-changing operations.
+
+The React client never receives:
+
+- OpenAI API credentials
+- provider response IDs
+- provider tool-call IDs
+- provider SDK objects
+
+Provider-specific continuation state stays behind the Express API.
+
+The browser receives only application-level DTOs and an opaque `approvalId`.
+
+---
+
+## ✋ Human in the Loop
+
+Before a state-changing action can execute, the manager must decide.
+
+![Human-in-the-loop trust boundary](docs/media/human_in_the_loop_trust_boundary.png)
+
+The manager can:
+
+✅ **Approve**  
+✏️ **Edit + approve**  
+❌ **Reject**
+
+For example, the model may propose:
+
+```text id="k6ouwh"
+12 kg chicken
+```
+
+The manager can change it to:
+
+```text id="nn0gox"
+10 kg chicken
+```
 
 ![Edit approval workflow](docs/media/edit-approval.png)
 
-### Grounded final outcome
+Only the approved **10 kg** action executes.
 
-![Completed restaurant operations report](docs/media/completed-outcome.png)
+The agent then resumes with the actual result and reports:
 
-### Responsive UI
-
-![Mobile operations console](docs/media/mobile.png)
-
-A short end-to-end demo recording is available in:
-
-`docs/media/demo.mov`
-
-The demo shows the full flow:
-
-```text
-Manager question
-      ↓
-Forecast + inventory tools
-      ↓
-12 kg chicken shortage
-      ↓
-AI proposes operational task
-      ↓
-Manager edits 12 kg → 10 kg
-      ↓
-Approved task executes
-      ↓
-Agent resumes
-      ↓
-Final report identifies remaining 2 kg shortfall
+```text id="4yl4sq"
+Original shortage    12 kg
+Approved task        10 kg
+Remaining gap         2 kg
 ```
 
----
+![Completed outcome](docs/media/completed-outcome.png)
 
-## What It Demonstrates
+The model’s original proposal is not treated as authoritative.
 
-- Tool-grounded AI recommendations using deterministic forecast and inventory data
-- LLM function/tool calling
-- Bounded multi-step agent execution
-- Separation of probabilistic reasoning from deterministic business logic
-- Human-in-the-loop approval for write operations
-- Approve, reject, and edit-before-execution workflows
-- Structured application-level execution events
-- Evidence and decision timeline
-- Server-side provider isolation
-- Responsive React operations console
-- Runtime validation of edited actions
-- Safe Markdown rendering
-- Frontend and domain-level automated tests
-- Public deployment using Vercel and Render
-- Per-IP rate limiting for public AI endpoints
+The manager’s decision is.
 
 ---
 
-## Architecture
+## 🧠 The Core Idea
 
-```text
-┌─────────────────────────────┐
-│ React Operations Console    │
-│ Vercel                      │
-└──────────────┬──────────────┘
-               │ HTTPS / JSON
-               ▼
-┌─────────────────────────────┐
-│ Node / Express API          │
-│ Render                      │
-│                             │
-│ • API DTO boundary          │
-│ • approvalId management     │
-│ • provider credentials      │
-│ • validation                │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│ Agent Orchestrator          │
-│                             │
-│ bounded multi-step loop     │
-└─────────┬───────────┬───────┘
-          │           │
-          ▼           ▼
-   ┌────────────┐  ┌────────────────────┐
-   │ LLM        │  │ Deterministic Tools│
-   │            │  │                    │
-   │ reasoning  │  │ • get_forecast     │
-   │ planning   │  │ • check_inventory  │
-   │ tool choice│  │ • list_recipes     │
-   └────────────┘  │ • create_task      │
-                   └─────────┬──────────┘
-                             │
-                             ▼
-                   ┌────────────────────┐
-                   │ Human Approval     │
-                   │                    │
-                   │ Approve            │
-                   │ Edit + Approve     │
-                   │ Reject             │
-                   └────────────────────┘
+> **The model proposes.  
+> The application validates.  
+> The manager decides.  
+> The system executes.**
+
+The trust boundary is intentional:
+
+- AI is used for interpretation, planning, and explanation.
+- deterministic code owns calculations and business rules.
+- humans approve state-changing actions.
+- execution happens only after validation.
+
+---
+
+## 🧰 Deterministic Tools
+
+The agent currently works with tools for:
+
+```text id="wz94lv"
+get_forecast
+check_inventory
+list_recipes
+create_task
 ```
 
-The React client never receives OpenAI response IDs, tool-call IDs, API credentials, or provider SDK objects.
+Read-only tools can execute automatically.
 
-Provider-specific continuation state remains on the server and is exposed to the browser only through an opaque application-level `approvalId`.
+State-changing tools cannot.
 
 ---
 
-## Agent Execution Model
+## Why Deterministic Tools Matter
 
-The project deliberately separates **model reasoning** from **application execution**.
+Critical business calculations stay in application code.
 
-```text
+For example:
+
+```ts id="mp13do"
+const shortage = Math.max(required - available, 0);
+```
+
+The model does not calculate or invent that value.
+
+It receives the result and interprets it.
+
+### LLM responsibilities
+
+```text id="kkosby"
+interpretation
+planning
+tool selection
+natural-language explanation
+```
+
+### Application responsibilities
+
+```text id="ihse56"
+calculations
+validation
+state mutation
+business rules
+security boundaries
+execution
+```
+
+This separation reduces the amount of trust placed in probabilistic model output.
+
+---
+
+## 🔄 Bounded Agent Execution
+
+The application uses a multi-step tool loop.
+
+```text id="q9g1dm"
 User goal
    ↓
-LLM decides which information is required
+Model selects tool
    ↓
-Tool request
+Application executes tool
    ↓
-Application executes deterministic function
+Tool result returned
    ↓
-Tool result returned to model
+Model reasons again
    ↓
-Model continues reasoning
-   ↓
-Possible additional tool request
+More tools if needed
    ↓
 Final response
 ```
 
-The agent loop is bounded to a maximum number of steps to prevent uncontrolled execution.
+The loop has a maximum-step guard to prevent uncontrolled execution.
 
 ---
 
-## Deterministic Business Logic
+## 📜 Structured Execution Timeline
 
-The LLM is not responsible for calculating critical operational facts.
+The UI doesn’t expose raw provider events.
 
-For example, inventory shortage is calculated by application code:
+Instead, the server produces application-level domain events.
 
-```ts
-shortage = Math.max(required - available, 0);
-```
+Examples include:
 
-The LLM receives this grounded result and interprets what it means operationally.
-
-This keeps responsibilities clear:
-
-```text
-LLM
-→ interpretation
-→ planning
-→ tool selection
-→ natural-language explanation
-
-Application code
-→ calculations
-→ validation
-→ authorization boundaries
-→ state mutation
-→ trusted business rules
-```
-
----
-
-## Human-in-the-Loop Trust Boundary
-
-Read-only tools execute automatically.
-
-Examples:
-
-```text
-get_forecast
-check_inventory
-list_recipes
-```
-
-State-changing tools do not execute directly when requested by the model.
-
-For example:
-
-```text
-LLM requests create_task
-        ↓
-Application intercepts request
-        ↓
-Pending approval created
-        ↓
-Manager reviews proposal
-     ↙        ↓        ↘
- Approve     Edit     Reject
-     ↓        ↓        ↓
-Execute    Execute    No mutation
-           edited
-           version
-```
-
-The model proposes an action.
-
-The application and manager retain execution authority.
-
-### Approval states and task states are separate
-
-An approved action can create a task whose operational lifecycle status is still `open`.
-
-For example:
-
-```text
-Approval state
-approved_and_executed
-
-Task lifecycle state
-open
-```
-
-This avoids confusing “open task” with “awaiting approval”.
-
----
-
-## Structured Execution Events
-
-The application records domain-level execution events rather than exposing provider-specific events to React.
-
-Current event types include:
-
-```text
+```text id="zz96k1"
 tool_started
 tool_completed
 approval_required
@@ -284,104 +246,55 @@ completed
 error
 ```
 
-The UI converts those events into an execution timeline such as:
+These events produce a visible execution history such as:
 
-```text
-Checking get forecast
-        ↓
-get forecast checked
-        ↓
-Checking check inventory
-        ↓
-check inventory checked
-        ↓
+```text id="s0ljd2"
+Checking forecast
+      ↓
+Forecast checked
+      ↓
+Checking inventory
+      ↓
+Inventory checked
+      ↓
 Manager review required
-        ↓
-Creating edited task
-        ↓
+      ↓
 Edited task created
-        ↓
+      ↓
 Analysis complete
 ```
 
-This creates a transparent evidence → decision → action history for the user.
+This lets the user understand **what happened and why**.
 
-The event model is transport-independent. The current implementation returns events with API responses rather than streaming them live.
+The current implementation returns events with API responses rather than streaming them live.
 
-A future SSE transport can emit the same event DTOs without redesigning the frontend domain model.
+The same event model could later support SSE without redesigning the frontend domain model.
 
 ---
 
-## Evidence Cards
+## 📊 Evidence, Not Parsed Model Text
 
-The UI presents structured tool results directly.
+The readiness cards come from structured tool results.
+
+The UI does not scrape values out of generated LLM text.
 
 Current evidence includes:
 
-- Forecast covers
-- Forecast confidence
-- Chicken inventory
-- Required inventory
-- Inventory shortage
+- forecast covers
+- forecast confidence
+- inventory available
+- inventory required
+- shortage
 
-The application does **not** parse these values from generated model text.
+This also preserves an important domain distinction:
 
-The evidence cards come from structured deterministic tool results.
+> **Creating a restock task does not mean the inventory has already arrived.**
 
-This also preserves an important business distinction:
-
-> Creating a restock task does not immediately replenish inventory.
-
-If inventory is 18 kg and the requirement is 30 kg, the shortage remains 12 kg even after an operational task is created.
+If the restaurant has 18 kg against a requirement of 30 kg, the inventory shortage remains 12 kg even after a procurement task is created.
 
 ---
 
-## Example HITL Scenario
-
-Initial evidence:
-
-```text
-Forecast
-180 covers
-88% confidence
-
-Chicken inventory
-18 kg available
-
-Required
-30 kg
-
-Shortage
-12 kg
-```
-
-The agent proposes:
-
-```text
-Procure 12 kg of chicken breast
-```
-
-The manager edits the proposal:
-
-```text
-12 kg → 10 kg
-```
-
-The application executes the approved 10 kg task.
-
-The model then receives the actual executed outcome and correctly reports:
-
-```text
-Original shortage: 12 kg
-Approved task:      10 kg
-Remaining gap:       2 kg
-```
-
-This demonstrates that human-approved values are authoritative rather than the model's original proposal.
-
----
-
-## Frontend
+## 🖥️ Frontend Experience
 
 Built with:
 
@@ -389,52 +302,145 @@ Built with:
 - TypeScript
 - Vite
 
-The operations console includes:
+The UI includes:
 
-- Manager prompt input
-- Tool-backed readiness cards
-- Loading and error states
-- Human approval interface
-- Editable proposals
-- Markdown operations report
-- Execution timeline
-- Responsive desktop/mobile layout
-- Keyboard-accessible controls
-- Quantity validation
+- manager prompt
+- readiness cards
+- tool-backed evidence
+- editable approval workflow
+- Markdown reports
+- loading states
+- error handling
+- execution timeline
+- responsive layouts
+- keyboard-accessible controls
+- quantity validation
 
-The UI has been verified at desktop width and approximately 390 px mobile width.
+### Manager approval
+
+![Manager approval workflow](docs/media/approval-required.png)
+
+### Responsive mobile experience
+
+![Mobile operations console](docs/media/mobile.png)
 
 ---
 
-## Backend
+## 🔐 Trust & Safety Boundaries
 
-Built with:
+The backend owns:
+
+- provider credentials
+- agent orchestration
+- tool execution
+- pending approvals
+- validation
+- API contracts
+- provider continuation state
+
+The application also includes:
+
+- restricted production CORS
+- per-IP API rate limiting
+- runtime validation
+- bounded agent execution
+- server-only secrets
+
+The OpenAI API key never reaches the browser.
+
+---
+
+## 🚦 Rate Limiting
+
+Public AI endpoints are protected with per-IP rate limiting to reduce accidental or abusive API usage.
+
+The current limiter is intended for portfolio/demo protection.
+
+For a distributed production system, rate-limit state would move to shared infrastructure rather than remaining instance-local.
+
+---
+
+## 🧪 Verified HITL Scenarios
+
+### Approve
+
+```text id="ykrm0y"
+12 kg shortage
+      ↓
+Agent proposes 12 kg task
+      ↓
+Manager approves
+      ↓
+12 kg open task created
+```
+
+### Reject
+
+```text id="2c0m07"
+12 kg shortage
+      ↓
+Agent proposes task
+      ↓
+Manager rejects
+      ↓
+No task created
+      ↓
+Shortage remains unresolved
+```
+
+### Edit + Approve
+
+```text id="jyf3n9"
+12 kg shortage
+      ↓
+Agent proposes 12 kg
+      ↓
+Manager edits → 10 kg
+      ↓
+10 kg task created
+      ↓
+Agent resumes
+      ↓
+2 kg remaining gap reported
+```
+
+All three paths have been exercised through the deployed browser application.
+
+---
+
+## 🧱 Tech Stack
+
+### Client
+
+- React
+- TypeScript
+- Vite
+
+### Server
 
 - Node.js
 - TypeScript
 - Express
+
+### AI
+
 - OpenAI Responses API
+- Tool/function calling
+- bounded agent loop
+- structured tool schemas
 
-The backend owns:
+### Deployment
 
-- Agent orchestration
-- Tool execution
-- Provider credentials
-- Provider continuation state
-- Pending approvals
-- Runtime validation
-- App-level event generation
-- API contracts
-- CORS policy
-
-The deployed API accepts requests only from the configured production client origin and approved local development origins.
+- Vercel — frontend
+- Render — backend
 
 ---
 
-## Repository Structure
+## 📁 Repository Structure
 
-```text
+```text id="5w4336"
 restaurant-operations-agent/
+│
 ├── client/
 │   └── src/
 │       ├── api/
@@ -454,123 +460,126 @@ restaurant-operations-agent/
 │
 ├── docs/
 │   └── media/
+│       ├── demo.gif
+│       ├── approval-required.png
+│       ├── edit-approval.png
+│       ├── completed-outcome.png
+│       ├── mobile.png
+│       ├── restaurant_operations_agent_architecture.png
+│       └── human_in_the_loop_trust_boundary.png
 │
 └── README.md
 ```
 
 ---
 
-## Run Locally
+## ▶️ Run Locally
 
 Use Node.js 22 or newer.
 
-### Backend
+### Server
 
-```sh
+```bash id="iy9zjf"
 cd server
 npm ci
 ```
 
 Create:
 
-```text
+```text id="8u50t7"
 server/.env
 ```
 
-with:
+Add:
 
-```env
+```env id="h5ty4q"
 OPENAI_API_KEY=your_api_key
 OPENAI_MODEL=your_model
 ```
 
 Then:
 
-```sh
+```bash id="zqskt4"
 npm run dev
 ```
 
 The API defaults to:
 
-```text
+```text id="p1246l"
 http://localhost:3001
 ```
 
-`PORT` can be used to configure another server port.
-
 ---
 
-### Frontend
+### Client
 
 In another terminal:
 
-```sh
+```bash id="ck8zv9"
 cd client
 npm ci
 npm run dev
 ```
 
-Open the Vite URL printed in the terminal.
+The frontend defaults to:
 
-By default, the frontend connects to:
-
-```text
+```text id="pi0lw3"
 http://localhost:3001
 ```
 
-To use another API:
+for the API.
 
-```env
+To use another backend:
+
+```env id="449ldp"
 VITE_API_URL=https://your-api.example.com
 ```
 
-Never place provider credentials such as `OPENAI_API_KEY` in a Vite environment variable.
+Never expose provider credentials using Vite environment variables.
 
 ---
 
-## Deployment
+## ☁️ Deployment
 
 ### Frontend
 
-Hosted on **Vercel**:
+Hosted on Vercel:
 
 https://frontend-ai-roadmap.vercel.app/
 
-The deployed client uses:
+Production configuration:
 
-```env
+```env id="ehapjb"
 VITE_API_URL=https://frontend-ai-roadmap.onrender.com
 ```
 
 ### Backend
 
-Hosted on **Render**:
+Hosted on Render:
 
-https://frontend-ai-roadmap.onrender.com
+https://frontend-ai-roadmap.onrender.com/
 
 Server-side environment configuration includes:
 
-```text
+```text id="pderq5"
 OPENAI_API_KEY
 OPENAI_MODEL
 CLIENT_ORIGIN
 ```
 
-`CLIENT_ORIGIN` is configured as:
+Production client origin:
 
-```text
+```text id="6tvumk"
 https://frontend-ai-roadmap.vercel.app
 ```
 
-The OpenAI API key never reaches the browser.
-
 ---
 
-## Validation
+## ✅ Validation
 
 ### Client
 
-```sh
+```bash id="6gctez"
 cd client
 
 npm run build
@@ -580,7 +589,7 @@ npm test
 
 ### Server
 
-```sh
+```bash id="r36gyi"
 cd server
 
 npm run typecheck
@@ -588,162 +597,97 @@ npm run build
 npm test
 ```
 
-The current automated suites cover frontend presentation/domain behavior and server-side tool/event behavior.
+Automated tests cover frontend presentation behavior and server-side tool/event behavior.
 
-Live provider integration requires valid API credentials and incurs API usage.
-
----
-
-## Acceptance Scenarios
-
-### Approve
-
-```text
-Agent detects 12 kg shortage
-→ proposes 12 kg task
-→ manager approves
-→ 12 kg open task created
-```
-
-### Reject
-
-```text
-Agent detects 12 kg shortage
-→ proposes task
-→ manager rejects
-→ no task created
-→ shortage remains unresolved
-```
-
-### Edit + Approve
-
-```text
-Agent detects 12 kg shortage
-→ proposes 12 kg task
-→ manager edits quantity to 10 kg
-→ 10 kg task created
-→ final report identifies remaining 2 kg gap
-```
-
-The deployed browser application has been exercised across all three flows.
+Live provider integration requires valid provider credentials and incurs API usage.
 
 ---
 
-## Current Limitations
+## ⚠️ Current Limitations
 
 This is a portfolio/demo system rather than a production restaurant platform.
 
 Current limitations include:
 
-- Forecast and restaurant records use synthetic fixture data
-- The forecast currently contains a fixed demo date
-- Tasks live in process memory
-- Pending approvals live in process memory
-- Server restart clears application state
-- No user authentication
-- No role-based authorization
-- No durable audit/event history
-- No multi-instance approval coordination
-- No atomic approval claiming
-- No write-operation idempotency
-- No approval expiry
-- No provider-failure recovery workflow
-- No durable SSE event history
-- Streaming events are not yet enabled
-- RAG is intentionally not included
-- LangGraph is intentionally not included
-- MCP is intentionally not included
-- Multi-agent orchestration is intentionally not included
-- Rate limiting is currently application-instance/in-memory based and is intended for portfolio/demo abuse protection rather than distributed production enforcement
+- synthetic restaurant data
+- fixed demo forecast
+- tasks stored in process memory
+- pending approvals stored in process memory
+- server restart clears application state
+- no authentication
+- no role-based authorization
+- no durable audit history
+- no multi-instance approval coordination
+- no atomic approval claiming
+- no write-operation idempotency
+- no approval expiry
+- no durable provider-failure recovery
+- no persistent streaming history
 
-Before exposing production write operations, the system would need durable persistence, authentication/authorization, idempotency, concurrency controls, approval expiry, recovery mechanisms, and stronger abuse protection.
+Rate limiting is currently instance-local rather than backed by shared distributed storage.
 
 ---
 
-## Why These Features Were Intentionally Deferred
+## 🚫 Intentionally Not Added
 
-The goal of this project is not to collect AI framework names.
+This milestone does not include:
 
-The architecture focuses on one core principle:
+- RAG
+- LangGraph
+- MCP
+- multi-agent orchestration
 
-> Use probabilistic AI for interpretation and planning while deterministic application code and humans retain authority over trusted business operations.
+That is intentional.
 
-Features such as RAG, LangGraph, MCP, multi-agent orchestration, and durable streaming would only be added when they solve a concrete product requirement.
+The project isn’t designed to accumulate AI framework keywords.
+
+Those technologies should be added only when they solve a real product requirement.
 
 ---
 
-## Future Improvements
+## 🔭 What I’d Add Next
 
-Potential next steps:
+For a production version:
 
-- Durable task and approval storage
-- Approval expiry
-- Idempotency and atomic approval claims
-- Authentication and role-based permissions
-- Shared/distributed rate-limit storage and stronger API-budget enforcement
-- Durable execution history
-- SSE-based live execution events
-- Cancellation and reconnect support
+- durable task + approval storage
+- authentication
+- role-based authorization
+- approval expiry
+- idempotency
+- atomic approval claims
+- distributed rate limiting
+- durable audit history
+- SSE live execution events
+- cancellation + reconnection
 - AI evaluation scenarios
-- Prompt-injection testing
-- Provider abstraction for multiple LLM vendors
-- Real operational data integrations
-- Production observability and tracing
+- prompt-injection testing
+- provider abstraction
+- observability + tracing
+- real restaurant data integrations
 
 ---
 
-## Key Engineering Takeaway
+## The Principle Behind the Project
 
-The project intentionally avoids treating the LLM as an authority.
+The most important lesson from this build is not about a particular LLM or framework.
 
-```text
-Evidence
-   ↓
-LLM reasoning
-   ↓
-Proposed action
-   ↓
-Application trust boundary
-   ↓
-Human decision
-   ↓
-Deterministic execution
-   ↓
-Actual outcome returned to model
+It is about deciding **where AI should have authority — and where it should not.**
+
+```text id="dkv92p"
+AI
+→ understand
+→ reason
+→ propose
+
+Application
+→ validate
+→ enforce rules
+
+Human
+→ approve trusted actions
+
+System
+→ execute
 ```
 
-The model can recommend.
-
-The application validates.
-
-The manager decides.
-
-The system executes.
-
----
-
-## Portfolio Positioning
-
-This project demonstrates the transition from traditional frontend/product engineering into AI-native application development while retaining strong frontend architecture and user-experience principles.
-
-It combines:
-
-```text
-React / TypeScript
-+
-API and application architecture
-+
-LLM tool calling
-+
-Agent orchestration
-+
-Human-in-the-loop UX
-+
-Deterministic business logic
-+
-Trust boundaries
-+
-Testing
-+
-Deployment
-```
+That separation is the architecture.
